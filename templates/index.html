@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>情緒識別系統</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <header>
+        <h1>情緒識別系統</h1>
+    </header>
+
+    <!-- 顯示攝影機畫面 -->
+    <main>
+        <section>
+            <h2>即時攝影機畫面</h2>
+            <video id="camera" autoplay playsinline width="640" height="480"></video>
+            <canvas id="snapshot" style="display: none;"></canvas>
+            <button id="capture-btn">識別情緒</button>
+        </section>
+
+        <section>
+            <h2>情緒識別結果</h2>
+            <div id="emotion-result">尚未識別</div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2024 情緒識別系統</p>
+    </footer>
+
+    <!-- JavaScript -->
+    <script>
+        const video = document.getElementById("camera");
+        const canvas = document.getElementById("snapshot");
+        const captureBtn = document.getElementById("capture-btn");
+        const resultDiv = document.getElementById("emotion-result");
+
+        // 啟動用戶端攝影機
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then((stream) => {
+                video.srcObject = stream;
+            })
+            .catch((err) => {
+                console.error("無法啟動攝影機: ", err);
+                resultDiv.innerText = "無法啟動攝影機，請檢查您的設備或權限設置";
+            });
+
+        // 捕獲畫面並傳送到後端 Flask
+        captureBtn.addEventListener("click", () => {
+            const context = canvas.getContext("2d");
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // 將畫面轉換為 Blob 上傳
+            canvas.toBlob((blob) => {
+                const formData = new FormData();
+                formData.append("image", blob);
+
+                fetch("/capture", {
+                    method: "POST",
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        resultDiv.innerText = "錯誤：" + data.error;
+                    } else {
+                        resultDiv.innerText = "識別情緒：" + data.emotion;
+                    }
+                })
+                .catch(err => {
+                    console.error("發生錯誤: ", err);
+                    resultDiv.innerText = "發生錯誤，請稍後重試！";
+                });
+            }, "image/jpeg");
+        });
+    </script>
+</body>
+</html>
